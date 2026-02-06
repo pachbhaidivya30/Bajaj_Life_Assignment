@@ -1,5 +1,5 @@
 # Bajaj_Life_Assignment
-Develop a “Enterprise Usage Monitoring &amp; Admin Platform”
+**Develop a “Enterprise Usage Monitoring &amp; Admin Platform”**
 
 **Functiional Requirenment**
 
@@ -67,7 +67,7 @@ The message queue decouples ingestion from downstream processing and helps absor
 
 **API Gateway**
 
-1.Identity and Access service
+**1.Identity and Access service**
     -Auth api
     -admin api
     
@@ -95,21 +95,17 @@ The message queue decouples ingestion from downstream processing and helps absor
     2. enterprise_id UUID,
     3.role_name     VARCHAR,
     4.description   VARCHAR
+    
+ 3. Permissions
+    1.permission_id UUID PRIMARY KEY,
+    2. permission    VARCHAR
 
+4. Role
+   role_id        UUID,PRIMARY KEY 
+   permission_id  UUID,PRIMARY KEY 
 
-
-  usage_alerts
-    1.alert_id       UUID PRIMARY KEY,
-    2.enterprise_id  UUID,
-    3.feature_name   VARCHAR,threshold_pct  INT,
-    4.window_type    5.ENUM('HOURLY','DAILY','MONTHLY'),
-    6.notification   ENUM('EMAIL')
-    7.status         ENUM('ACTIVE','DISABLED'),
-    8.created_at     TIMESTAMP
-
-
-
-2.Usage Ingestion Service
+**2.Usage Ingestion Service**
+Api design:
     1.Usage api
     2.Adimin Usage API
     Validation & Normalization  
@@ -121,7 +117,35 @@ The message queue decouples ingestion from downstream processing and helps absor
     
     POST /v1/admin/alerts
 
-3.Admin & Dashboard APIs
+1. usage_alerts
+    1.alert_id       UUID PRIMARY KEY,
+    2.enterprise_id  UUID,
+    3.feature_name   VARCHAR,threshold_pct  INT,
+    4.window_type    5.ENUM('HOURLY','DAILY','MONTHLY'),
+    6.notification   ENUM('EMAIL')
+    7.status         ENUM('ACTIVE','DISABLED'),
+    8.created_at     TIMESTAMP
+    
+2. Usage Event
+    1.event_id        UUID (PK),
+    2. enterprise_id   UUID,
+    3.user_id         UUID,
+    4.feature_name    VARCHAR,
+    5.event_type      VARCHAR,
+    6.event_timestamp TIMESTAMP,
+    7.received_at     TIMESTAMP
+
+3.Usage Limit
+    1.limit_id       UUID PRIMARY KEY,
+    2.enterprise_id  UUID NOT NULL,
+    3.  feature_name   VARCHAR NOT NULL,
+    4.window_type    ENUM('HOURLY','DAILY','MONTHLY'),
+    5.action         ENUM('ALERT','BLOCK'),
+    6.status         ENUM('ACTIVE','INACTIVE'),
+    7.created_at     TIMESTAMP,
+    8.updated_at     TIMESTAMP
+    
+**3.Admin & Dashboard APIs**
   
   GET /v1/dashboard/summary
   GET /v1/dashboard/usage/trends
@@ -129,6 +153,51 @@ The message queue decouples ingestion from downstream processing and helps absor
   GET /v1/dashboard/usage/by-feature
   GET /v1/dashboard/users/exceeded-limits
   GET /v1/dashboard/violations
-
   
+**Schema design**
+1.usage_aggregates
+  1.enterprise_id   UUID,
+  2.metric_type     VARCHAR,   -- 3.active_users, usage_count
+  4.feature_name    VARCHAR,
+  5.time_bucket     TIMESTAMP,
+  6.value           BIGINT
 
+**alert_events**
+  1.enterprise_id UUID,
+  2.feature_name  VARCHAR,
+  3.triggered_at  TIMESTAMP,
+  4.severity      ENUM('LOW','HIGH')
+  
+**user_usage_aggregates **
+  enterprise_id   UUID,
+  user_id         UUID,
+  feature_name    VARCHAR,
+  time_bucket     DATE,       -- day/hour
+  usage_count     BIGINT,
+  PRIMARY KEY (enterprise_id, user_id, feature_name, time_bucket)
+
+**usage_violations **
+  violation_id   UUID PRIMARY KEY,
+  enterprise_id  UUID,
+  user_id        UUID,
+  feature_name   VARCHAR,
+  limit_value    BIGINT,
+  actual_value  BIGINT,
+  window_type    ENUM('DAILY','MONTHLY'),
+  detected_at    TIMESTAMP,
+  status         ENUM('OPEN','RESOLVED')
+
+**Database**
+
+The system uses PostgreSQL as the primary database for all transactional and critical data such as users, enterprises, roles, access policies, usage limits, usage violations, and audit logs. PostgreSQL is chosen because it provides strong ACID guarantees, supports complex relationships and queries, and ensures data consistency, which is essential for enterprise-grade security, policy enforcement, and auditing.
+
+Redis is used as an in-memory cache and fast-access store for frequently accessed and time-sensitive data such as authentication tokens, role and policy lookups, rate-limiting counters, and cached dashboard summaries. Using Redis reduces load on PostgreSQL, improves API response times, and supports low-latency operations required for authentication, rate limiting, and real-time dashboards.
+
+**Read request flow**
+
+When a client requests data (for example, dashboard metrics or policy details), the system first checks Redis cache for the requested information using a well-defined cache key (such as enterpriseId + feature + window). If the data is found in Redis (cache hit), it is returned immediately to the client, ensuring low latency and reduced backend load.
+
+If the data is not present in Redis (cache miss), the request is forwarded to PostgreSQL, where the data is fetched from the persistent store. Once retrieved, the data is returned to the client and simultaneously written back to Redis with an appropriate TTL. This ensures that subsequent reads are served from cache. This cache-first read flow improves performance, reduces database load, and supports scalable read-heavy dashboard traffic.
+
+**Write Request Flow:**
+For write requests (such as updating usage limits, policies, or recording violations), the system first writes the data to PostgreSQL as the source of truth to ensure durability and consistency. After a successful database write, the system either updates the corresponding cache entry or invalidates it in Redis. This guarantees that subsequent read requests fetch fresh data while maintaining high performance and data consistency.
