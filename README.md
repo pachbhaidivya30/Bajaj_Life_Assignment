@@ -1,7 +1,7 @@
 # Bajaj_Life_Assignment
 Develop a “Enterprise Usage Monitoring &amp; Admin Platform”
 
-Functiional Requirenment
+**Functiional Requirenment**
 
 1. Ingest and track user and feature usage across enterprises in near real time.
 2. Usage dashboards showing active users, feature usage and trends
@@ -9,7 +9,7 @@ Functiional Requirenment
 4. Alerts for high usage or abnormal behavior
 5. Maintain audit logs for user and admin actions
 
-Non Functional Requirenments:
+**Non Functional Requirenments:**
 
 1. System should scale to large enterprises and high data volume
 2.Strong security with tenant isolation and encryption
@@ -57,7 +57,7 @@ Total yearly storage Required=256 TB/yr
 
 **Assumption**: Designing a system to track usage of multiple enterprises
 
-Overall System design:
+**Overall System design:**
 
 The Enterprise Usage Monitoring and Admin Platform supports two types of clients: web users (employees) who generate usage events and admin users who manage policies, limits, and dashboards. Both clients access the system through a web interface, with static assets and cached dashboard responses served via a CDN to reduce latency and backend load. Requests then pass through a Load Balancer, which distributes traffic across multiple backend instances to ensure high availability and horizontal scalability.
 
@@ -80,7 +80,7 @@ The message queue decouples ingestion from downstream processing and helps absor
     GET  /v1/auth/validate
     POST /v1/admin/policies
 
-Schema design:
+**Schema design:**
   1.User
     1.user_id           UUID PRIMARY KEY,
     2.enterprise_id     UUID NOT NULL,
@@ -96,7 +96,7 @@ Schema design:
     3.role_name     VARCHAR,
     4.description   VARCHAR
 
-  3.
+
 
   usage_alerts
     1.alert_id       UUID PRIMARY KEY,
@@ -106,6 +106,7 @@ Schema design:
     6.notification   ENUM('EMAIL')
     7.status         ENUM('ACTIVE','DISABLED'),
     8.created_at     TIMESTAMP
+
 
 
 2.Usage Ingestion Service
